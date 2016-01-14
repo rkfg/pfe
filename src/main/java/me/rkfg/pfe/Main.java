@@ -96,9 +96,7 @@ public class Main {
         torrentParams.infoHash(new Sha1Hash(String.valueOf(hash)));
         torrentParams.savePath(params[1]);
         TorrentHandle th = session.addTorrent(torrentParams, new ErrorCode(new error_code()));
-        for (String tracker : trackers) {
-            th.addTracker(new AnnounceEntry(tracker));
-        }
+        setTrackers(th);
 
         final CountDownLatch signal = new CountDownLatch(1);
 
@@ -122,10 +120,14 @@ public class Main {
 
         };
         session.addListener(listener);
-
         th.resume();
-
         signal.await();
+    }
+
+    private void setTrackers(TorrentHandle th) {
+        for (String tracker : trackers) {
+            th.addTracker(new AnnounceEntry(tracker));
+        }
     }
 
     private void initSession() {
@@ -133,7 +135,7 @@ public class Main {
         dht = Boolean.valueOf(properties.getProperty("enable_dht", "false"));
         settingsPack.setBoolean(bool_types.enable_dht.swigValue(), dht);
         trackers = properties.getProperty("trackers", "").split("\\|");
-        log.debug("Trackers: {}", (Object[]) trackers);
+        log.debug("Trackers: {}", Arrays.asList(trackers));
         settingsPack.setInteger(int_types.alert_queue_size.swigValue(), 10000);
         session = new Session(settingsPack, true);
     }
@@ -158,6 +160,7 @@ public class Main {
         initSession();
         TorrentInfo torrentInfo = TorrentInfo.bdecode(e.bencode());
         TorrentHandle handle = session.addTorrent(torrentInfo, file.getParentFile(), null, null);
+        setTrackers(handle);
         final CountDownLatch signal = new CountDownLatch(1);
         final int timeout = Integer.valueOf(properties.getProperty("seeding_timeout", "60"));
         session.addListener(new TorrentAlertAdapter(handle) {
@@ -197,7 +200,7 @@ public class Main {
     private void loadSettings() {
         properties = new Properties();
         try {
-            properties.load(new FileInputStream(new File("settings.ini")));
+            properties.load(new FileInputStream(new File("pfe_settings.ini")));
         } catch (IOException e) {
             e.printStackTrace();
         }

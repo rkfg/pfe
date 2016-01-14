@@ -1,0 +1,2 @@
+#!/bin/sh
+java -Xmx128m -jar pfe.jar "$@"

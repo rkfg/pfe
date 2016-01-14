@@ -1,0 +1,3 @@
+trackers=http://127.0.0.1:6969/announce|udp://tracker.openbittorrent.com:80
+seeding_timeout=30
+enable_dht=true
