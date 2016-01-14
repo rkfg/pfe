@@ -13,6 +13,7 @@ import java.util.Arrays;
 import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Base32;
@@ -42,6 +43,7 @@ import com.frostwire.jlibtorrent.swig.file_storage;
 import com.frostwire.jlibtorrent.swig.libtorrent;
 import com.frostwire.jlibtorrent.swig.set_piece_hashes_listener;
 import com.frostwire.jlibtorrent.swig.settings_pack.bool_types;
+import com.frostwire.jlibtorrent.swig.settings_pack.int_types;
 
 public class Main {
 
@@ -103,20 +105,19 @@ public class Main {
         TorrentAlertAdapter listener = new TorrentAlertAdapter(th) {
             @Override
             public void blockFinished(BlockFinishedAlert alert) {
-                int p = (int) (th.getStatus().getProgress() * 100);
-                System.out.println("Progress: " + p + " for torrent name: " + alert.torrentName());
-                System.out.println(session.getStats().download());
+                int p = (int) (alert.getHandle().getStatus().getProgress() * 100);
+                log.debug("Progress: {} for torrent {}", p, alert.torrentName());
             }
 
             @Override
             public void torrentFinished(TorrentFinishedAlert alert) {
-                System.out.print("Torrent finished");
+                log.info("Torrent {} finished", alert.torrentName());
                 signal.countDown();
             }
 
             @Override
             public void torrentError(TorrentErrorAlert alert) {
-                System.out.print("Torrent failed");
+                log.error("Torrent {} failed", alert.torrentName());
             }
 
         };
@@ -133,6 +134,7 @@ public class Main {
         settingsPack.setBoolean(bool_types.enable_dht.swigValue(), dht);
         trackers = properties.getProperty("trackers", "").split("\\|");
         log.debug("Trackers: {}", (Object[]) trackers);
+        settingsPack.setInteger(int_types.alert_queue_size.swigValue(), 10000);
         session = new Session(settingsPack, true);
     }
 
@@ -157,10 +159,24 @@ public class Main {
         TorrentInfo torrentInfo = TorrentInfo.bdecode(e.bencode());
         TorrentHandle handle = session.addTorrent(torrentInfo, file.getParentFile(), null, null);
         final CountDownLatch signal = new CountDownLatch(1);
+        final int timeout = Integer.valueOf(properties.getProperty("seeding_timeout", "60"));
         session.addListener(new TorrentAlertAdapter(handle) {
+
+            int lastUpload = 0;
+            long lastTimestamp = System.nanoTime();
+
             @Override
             public void stats(StatsAlert alert) {
                 int transferred = alert.transferred(StatsChannel.UPLOAD_PAYLOAD.getIndex());
+                if (transferred > lastUpload) {
+                    lastUpload = transferred;
+                    lastTimestamp = System.nanoTime();
+                } else {
+                    if (System.nanoTime() - lastTimestamp > TimeUnit.SECONDS.toNanos(timeout)) {
+                        log.warn("Seeding timeout.");
+                        signal.countDown();
+                    }
+                }
                 long totalSize = alert.getHandle().getTorrentInfo().getTotalSize();
                 if (transferred > totalSize * 2) {
                     log.info("Seeding complete.");
