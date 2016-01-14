@@ -162,7 +162,7 @@ public class Main {
             public void stats(StatsAlert alert) {
                 int transferred = alert.transferred(StatsChannel.UPLOAD_PAYLOAD.getIndex());
                 long totalSize = alert.getHandle().getTorrentInfo().getTotalSize();
-                if (transferred >= totalSize) {
+                if (transferred > totalSize * 2) {
                     log.info("Seeding complete.");
                     signal.countDown();
                 }
