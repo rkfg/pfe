@@ -6,46 +6,69 @@
     <version>0.0.1-SNAPSHOT</version>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <jlt.version>1.1.0.19</jlt.version>
     </properties>
+    <profiles>
+        <profile>
+            <id>windows64</id>
+            <properties>
+                <profile-id>win64</profile-id>
+            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>com.frostwire</groupId>
+                    <artifactId>jlibtorrent-windows</artifactId>
+                    <version>${jlt.version}</version>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <id>windows32</id>
+            <properties>
+                <profile-id>win32</profile-id>
+            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>com.frostwire</groupId>
+                    <artifactId>jlibtorrent-windows</artifactId>
+                    <version>${jlt.version}</version>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <id>linux64</id>
+            <properties>
+                <profile-id>linux64</profile-id>
+            </properties>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>com.frostwire</groupId>
+                    <artifactId>jlibtorrent-linux</artifactId>
+                    <version>${jlt.version}</version>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <id>linux32</id>
+            <properties>
+                <profile-id>linux32</profile-id>
+            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>com.frostwire</groupId>
+                    <artifactId>jlibtorrent-linux</artifactId>
+                    <version>${jlt.version}</version>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
     <dependencies>
         <dependency>
             <groupId>com.frostwire</groupId>
             <artifactId>jlibtorrent</artifactId>
-            <version>1.1.0.19</version>
-        </dependency>
-        <dependency>
-            <groupId>com.frostwire</groupId>
-            <artifactId>jlibtorrent-linux</artifactId>
-            <version>1.1.0.19</version>
-        </dependency>
-        <dependency>
-            <groupId>com.frostwire</groupId>
-            <artifactId>jlibtorrent-macosx</artifactId>
-            <version>1.1.0.19</version>
-        </dependency>
-        <dependency>
-            <groupId>com.frostwire</groupId>
-            <artifactId>jlibtorrent-windows</artifactId>
-            <version>1.1.0.19</version>
-        </dependency>
-        <dependency>
-            <groupId>com.frostwire</groupId>
-            <artifactId>jlibtorrent-android-arm</artifactId>
-            <version>1.1.0.19</version>
-        </dependency>
-        <dependency>
-            <groupId>com.frostwire</groupId>
-            <artifactId>jlibtorrent-android-arm64</artifactId>
-            <version>1.1.0.19</version>
-        </dependency>
-        <dependency>
-            <groupId>com.frostwire</groupId>
-            <artifactId>jlibtorrent-android-x86</artifactId>
-            <version>1.1.0.19</version>
-        </dependency>
-        <dependency>
-            <groupId>com.frostwire</groupId>
-            <artifactId>jlibtorrent-android-x86_64</artifactId>
             <version>1.1.0.19</version>
         </dependency>
         <dependency>
@@ -60,7 +83,7 @@
         </dependency>
     </dependencies>
     <build>
-        <finalName>pfe</finalName>
+        <finalName>pfe-${profile-id}</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
