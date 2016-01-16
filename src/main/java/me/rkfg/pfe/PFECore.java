@@ -8,8 +8,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
@@ -33,7 +37,6 @@ import com.frostwire.jlibtorrent.TorrentAlertAdapter;
 import com.frostwire.jlibtorrent.TorrentHandle;
 import com.frostwire.jlibtorrent.TorrentInfo;
 import com.frostwire.jlibtorrent.alerts.AlertType;
-import com.frostwire.jlibtorrent.alerts.BlockFinishedAlert;
 import com.frostwire.jlibtorrent.alerts.FileErrorAlert;
 import com.frostwire.jlibtorrent.alerts.StatsAlert;
 import com.frostwire.jlibtorrent.alerts.TorrentErrorAlert;
@@ -44,7 +47,6 @@ import com.frostwire.jlibtorrent.swig.file_storage;
 import com.frostwire.jlibtorrent.swig.libtorrent;
 import com.frostwire.jlibtorrent.swig.set_piece_hashes_listener;
 import com.frostwire.jlibtorrent.swig.settings_pack.bool_types;
-import com.frostwire.jlibtorrent.swig.settings_pack.int_types;
 
 public enum PFECore {
 
@@ -55,6 +57,8 @@ public enum PFECore {
     private Session session;
 
     private SettingsStorage settingsStorage;
+
+    private Set<PFEListener> listeners = new HashSet<PFEListener>();
 
     private PFECore() {
         loadLibrary();
@@ -120,45 +124,52 @@ public enum PFECore {
         log.debug("Using libtorrent version: {}", LibTorrent.version());
     }
 
-    private class LastTorrentActivity {
-        public long upload = 0;
-        public long timestamp = System.nanoTime();
-    }
-
     private void initSession() {
+        log.debug("Trackers: {}", settingsStorage.getTrackers());
         SettingsPack settingsPack = new SettingsPack();
         settingsPack.setBoolean(bool_types.enable_dht.swigValue(), settingsStorage.isDht());
-        log.debug("Trackers: {}", settingsStorage.getTrackers());
         session = new Session(settingsPack, true);
-        settingsPack.setInteger(int_types.alert_queue_size.swigValue(), 1000000);
         // stats don't get sent after a minute of torrent inactivity or so, we should manually check them to handle timeouts
-        Timer seedingTimeoutTimer = new Timer("Stats checker", true);
-        seedingTimeoutTimer.schedule(new TimerTask() {
+        Timer torrentProgressTimer = new Timer("Progress checker", true);
+        torrentProgressTimer.schedule(new TimerTask() {
 
-            // torrent_handle.id => last activity data
-            Map<Long, LastTorrentActivity> activities = new HashMap<>();
+            // torrent_handle.id => activity data
+            Map<Long, TorrentActivity> activities = new HashMap<>();
 
             @Override
             public void run() {
+                List<TorrentActivity> result = new ArrayList<TorrentActivity>();
                 for (TorrentHandle torrentHandle : session.getTorrents()) {
+                    long id = torrentHandle.getSwig().id();
+                    TorrentActivity activity = activities.get(id);
+                    if (activity == null) {
+                        activity = new TorrentActivity();
+                        activities.put(id, activity);
+                    }
+                    int p = (int) (torrentHandle.getStatus().getProgress() * 100);
+                    if (p > activity.progress) {
+                        activity.name = torrentHandle.getName();
+                        activity.progress = p;
+                        log.debug("Progress: {} for torrent {}", p, activity.name);
+                        result.add(activity);
+                    }
                     if (torrentHandle.getStatus().isFinished()) {
                         long transferred = torrentHandle.getStatus().getTotalPayloadUpload();
-                        long id = torrentHandle.getSwig().id();
-                        LastTorrentActivity lastTorrentActivity = activities.get(id);
-                        if (lastTorrentActivity == null) {
-                            lastTorrentActivity = new LastTorrentActivity();
-                            activities.put(id, lastTorrentActivity);
-                        }
-                        if (transferred > lastTorrentActivity.upload) {
-                            lastTorrentActivity.upload = transferred;
-                            lastTorrentActivity.timestamp = System.nanoTime();
+                        if (transferred > activity.upload) {
+                            activity.upload = transferred;
+                            activity.timestamp = System.nanoTime();
                         } else {
-                            log.debug("Last timestamp: {} now: {} timeout: {}", lastTorrentActivity.timestamp, System.nanoTime(),
+                            log.debug("Last timestamp: {} now: {} timeout: {}", activity.timestamp, System.nanoTime(),
                                     settingsStorage.getSeedingTimeout());
-                            if (System.nanoTime() - lastTorrentActivity.timestamp > settingsStorage.getSeedingTimeout()) {
+                            if (System.nanoTime() - activity.timestamp > settingsStorage.getSeedingTimeout()) {
                                 log.warn("Seeding '{}' timeout.", torrentHandle.getTorrentInfo().getName());
                                 torrentHandle.pause();
                             }
+                        }
+                    }
+                    if (result.size() > 0) {
+                        for (PFEListener pfeListener : listeners) {
+                            pfeListener.torrentProgress(result);
                         }
                     }
                 }
@@ -174,27 +185,6 @@ public enum PFECore {
         final TorrentHandle handle = session.addTorrent(torrentParams, new ErrorCode(new error_code()));
         setTrackers(handle);
         TorrentAlertAdapter listener = new TorrentAlertAdapter(handle) {
-
-            Map<Long, Integer> progresses = new HashMap<>();
-
-            /*
-             * should not block for too long so only log percentage when it changes. Else the alert manager queue gets overflown and we lose
-             * the torrent_finished alert
-             */
-
-            @Override
-            public void blockFinished(BlockFinishedAlert alert) {
-                int p = (int) (alert.getHandle().getStatus().getProgress() * 100);
-                long id = alert.getHandle().getSwig().id();
-                Integer progress = progresses.get(id);
-                if (progress == null) {
-                    progress = 0;
-                }
-                if (p > progress) {
-                    log.debug("Progress: {} for torrent {}", p, alert.torrentName());
-                    progresses.put(id, p);
-                }
-            }
 
             @Override
             public void torrentError(TorrentErrorAlert alert) {
@@ -213,8 +203,7 @@ public enum PFECore {
 
             @Override
             public int[] types() {
-                return new int[] { AlertType.BLOCK_FINISHED.getSwig(), AlertType.TORRENT_ERROR.getSwig(),
-                        AlertType.TORRENT_FINISHED.getSwig(), AlertType.FILE_ERROR.getSwig() };
+                return new int[] { AlertType.TORRENT_ERROR.getSwig(), AlertType.TORRENT_FINISHED.getSwig(), AlertType.FILE_ERROR.getSwig() };
             }
 
         };
@@ -296,6 +285,14 @@ public enum PFECore {
 
     public void removeTorrent(TorrentHandle th) {
         session.removeTorrent(th);
+    }
+
+    public void addPFEListener(PFEListener listener) {
+        listeners.add(listener);
+    }
+
+    public void removePFEListener(PFEListener listener) {
+        listeners.remove(listener);
     }
 
 }
