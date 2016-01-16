@@ -41,6 +41,7 @@ import com.frostwire.jlibtorrent.alerts.FileErrorAlert;
 import com.frostwire.jlibtorrent.alerts.StatsAlert;
 import com.frostwire.jlibtorrent.alerts.TorrentErrorAlert;
 import com.frostwire.jlibtorrent.alerts.TorrentFinishedAlert;
+import com.frostwire.jlibtorrent.swig.add_torrent_params;
 import com.frostwire.jlibtorrent.swig.create_torrent;
 import com.frostwire.jlibtorrent.swig.error_code;
 import com.frostwire.jlibtorrent.swig.file_storage;
@@ -237,7 +238,11 @@ public enum PFECore {
         }
         Entry e = new Entry(ct.generate());
         TorrentInfo torrentInfo = TorrentInfo.bdecode(e.bencode());
-        final TorrentHandle handle = session.addTorrent(torrentInfo, file.getParentFile(), null, null);
+        AddTorrentParams addTorrentParams = AddTorrentParams.createInstance();
+        addTorrentParams.getSwig().setFlags(add_torrent_params.flags_t.flag_seed_mode.swigValue());
+        addTorrentParams.torrentInfo(torrentInfo);
+        addTorrentParams.savePath(file.getParent());
+        final TorrentHandle handle = session.addTorrent(addTorrentParams, new ErrorCode(new error_code()));
         setTrackers(handle);
         log.info("Seeding {}", handle.getTorrentInfo().getName());
         try {
