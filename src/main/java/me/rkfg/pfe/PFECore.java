@@ -113,7 +113,7 @@ public enum PFECore {
         File targetFile = target.toFile();
         targetFile.deleteOnExit();
 
-        try (InputStream source = Main.class.getResourceAsStream(inputPath.toString())) {
+        try (InputStream source = PFECore.class.getResourceAsStream(inputPath.toString())) {
             if (source == null) {
                 throw new FileNotFoundException("File " + inputPath + " was not found in classpath.");
             }
