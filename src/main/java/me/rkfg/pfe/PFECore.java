@@ -213,10 +213,24 @@ public enum PFECore {
         return handle;
     }
 
-    public TorrentHandle share(String path) {
+    public TorrentHandle share(String... paths) {
         file_storage fs = new file_storage();
-        File file = new File(path).getAbsoluteFile();
-        libtorrent.add_files(fs, file.getAbsolutePath());
+        String rootPath = null;
+        for (String path : paths) {
+            File file = new File(path).getAbsoluteFile();
+            if (rootPath == null) {
+                rootPath = file.getParent();
+            } else {
+                if (!rootPath.equals(file.getParent())) {
+                    throw new PFEException("Files should have the same root directory.");
+                }
+            }
+            if (file.isDirectory()) {
+                libtorrent.add_files(fs, file.getAbsolutePath());
+            } else {
+                fs.add_file(file.getAbsolutePath(), file.length());
+            }
+        }
         final create_torrent ct = new create_torrent(fs);
         set_piece_hashes_listener hashListener = new set_piece_hashes_listener() {
 
@@ -232,7 +246,8 @@ public enum PFECore {
             }
         };
         error_code ec = new error_code();
-        libtorrent.set_piece_hashes_ex(UUID.randomUUID().toString(), ct, file.getParent(), ec, hashListener);
+        log.debug("Root path: {}", rootPath);
+        libtorrent.set_piece_hashes_ex(UUID.randomUUID().toString(), ct, rootPath, ec, hashListener);
         if (ec.value() != 0) {
             throw new IllegalStateException(ec.message());
         }
@@ -241,17 +256,21 @@ public enum PFECore {
         AddTorrentParams addTorrentParams = AddTorrentParams.createInstance();
         addTorrentParams.getSwig().setFlags(add_torrent_params.flags_t.flag_seed_mode.swigValue());
         addTorrentParams.torrentInfo(torrentInfo);
-        addTorrentParams.savePath(file.getParent());
+        addTorrentParams.savePath(rootPath);
         final TorrentHandle handle = session.addTorrent(addTorrentParams, new ErrorCode(new error_code()));
         setTrackers(handle);
         log.info("Seeding {}", handle.getTorrentInfo().getName());
         try {
-            log.info("Link: {}", new Base32().encodeAsString(Hex.decodeHex(torrentInfo.getInfoHash().toHex().toCharArray())));
+            log.info("Link: {}", getLink(handle));
         } catch (DecoderException e1) {
             e1.printStackTrace();
         }
         addSeedListener(handle);
         return handle;
+    }
+
+    public String getLink(TorrentHandle handle) throws DecoderException {
+        return new Base32().encodeAsString(Hex.decodeHex(handle.getInfoHash().toHex().toCharArray()));
     }
 
     private void setTrackers(TorrentHandle th) {
