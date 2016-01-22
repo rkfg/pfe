@@ -36,6 +36,7 @@ import com.frostwire.jlibtorrent.Sha1Hash;
 import com.frostwire.jlibtorrent.TorrentAlertAdapter;
 import com.frostwire.jlibtorrent.TorrentHandle;
 import com.frostwire.jlibtorrent.TorrentInfo;
+import com.frostwire.jlibtorrent.TorrentStatus;
 import com.frostwire.jlibtorrent.alerts.AlertType;
 import com.frostwire.jlibtorrent.alerts.FileErrorAlert;
 import com.frostwire.jlibtorrent.alerts.StatsAlert;
@@ -141,36 +142,39 @@ public enum PFECore {
             public void run() {
                 List<TorrentActivity> result = new ArrayList<TorrentActivity>();
                 for (TorrentHandle torrentHandle : session.getTorrents()) {
-                    long id = torrentHandle.getSwig().id();
-                    TorrentActivity activity = activities.get(id);
-                    if (activity == null) {
-                        activity = new TorrentActivity();
-                        activities.put(id, activity);
-                    }
-                    int p = (int) (torrentHandle.getStatus().getProgress() * 100);
-                    if (p > activity.progress) {
-                        activity.name = torrentHandle.getName();
-                        activity.progress = p;
-                        log.debug("Progress: {} for torrent {}", p, activity.name);
-                        result.add(activity);
-                    }
-                    if (torrentHandle.getStatus().isFinished()) {
-                        long transferred = torrentHandle.getStatus().getTotalPayloadUpload();
-                        if (transferred > activity.upload) {
-                            activity.upload = transferred;
-                            activity.timestamp = System.nanoTime();
-                        } else {
-                            log.debug("Last timestamp: {} now: {} timeout: {}", activity.timestamp, System.nanoTime(),
-                                    settingsStorage.getSeedingTimeout());
-                            if (System.nanoTime() - activity.timestamp > settingsStorage.getSeedingTimeout()) {
-                                log.warn("Seeding '{}' timeout.", torrentHandle.getTorrentInfo().getName());
-                                torrentHandle.pause();
+                    TorrentStatus status = torrentHandle.getStatus();
+                    if (!status.isPaused()) {
+                        long id = torrentHandle.getSwig().id();
+                        TorrentActivity activity = activities.get(id);
+                        if (activity == null) {
+                            activity = new TorrentActivity();
+                            activities.put(id, activity);
+                        }
+                        int p = (int) (status.getProgress() * 100);
+                        if (p > activity.progress) {
+                            activity.name = torrentHandle.getName();
+                            activity.progress = p;
+                            log.debug("Progress: {} for torrent {}", p, activity.name);
+                            result.add(activity);
+                        }
+                        if (status.isFinished()) {
+                            long transferred = status.getTotalPayloadUpload();
+                            if (transferred > activity.upload) {
+                                activity.upload = transferred;
+                                activity.timestamp = System.nanoTime();
+                            } else {
+                                log.debug("Last timestamp: {} now: {} timeout: {}", activity.timestamp, System.nanoTime(),
+                                        settingsStorage.getSeedingTimeout());
+                                if (System.nanoTime() - activity.timestamp > settingsStorage.getSeedingTimeout()) {
+                                    log.warn("Seeding '{}' timeout.", torrentHandle.getTorrentInfo().getName());
+                                    torrentHandle.pause();
+                                }
                             }
                         }
-                    }
-                    if (result.size() > 0) {
-                        for (PFEListener pfeListener : listeners) {
-                            pfeListener.torrentProgress(result);
+                        if (result.size() > 0) {
+                            for (PFEListener pfeListener : listeners) {
+                                pfeListener.torrentProgress(result);
+                            }
                         }
                     }
                 }
