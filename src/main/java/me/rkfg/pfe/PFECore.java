@@ -213,22 +213,49 @@ public enum PFECore {
         return handle;
     }
 
-    public TorrentHandle share(String... paths) {
+    private enum TorrentType {
+        MULTIFILE, ONEDIR
+    }
+
+    /**
+     * Share files and/or directories
+     * 
+     * @param listener
+     *            the listener will be called with hash progress in percents
+     * @param paths
+     *            paths to add to the torrent
+     * @return handle of the created torrent, call {@link TorrentHandle#resume()} to start it.
+     */
+    public TorrentHandle share(final set_piece_hashes_listener listener, String... paths) {
         file_storage fs = new file_storage();
         String rootPath = null;
+        TorrentType type = null;
         for (String path : paths) {
             File file = new File(path).getAbsoluteFile();
-            if (rootPath == null) {
-                rootPath = file.getParent();
-            } else {
-                if (!rootPath.equals(file.getParent())) {
-                    throw new PFEException("Files should have the same root directory.");
-                }
+            if (!file.exists()) {
+                throw new PFEException("file " + file.getAbsolutePath() + " doesn't exist.");
+            }
+            if (file.isDirectory() && type == TorrentType.MULTIFILE || file.isFile() && type == TorrentType.ONEDIR) {
+                throw new PFEException("Only create torrent from directories or files, do not mix both.");
+
             }
             if (file.isDirectory()) {
+                type = TorrentType.ONEDIR;
+                if (paths.length > 1) {
+                    throw new PFEException("Only select one directory, you've selected " + paths.length);
+                }
+                rootPath = file.getParent();
                 libtorrent.add_files(fs, file.getAbsolutePath());
             } else {
-                fs.add_file(file.getAbsolutePath(), file.length());
+                type = TorrentType.MULTIFILE;
+                String newRootPath = file.getParentFile().getParent();
+                if (rootPath != null && !rootPath.equals(newRootPath)) {
+                    throw new PFEException("Files should have the same root directory.");
+                }
+                rootPath = newRootPath;
+                String multiTorrentPath = new File(file.getParentFile().getName(), file.getName()).getPath();
+                log.debug("Mapping: {} => {}", file.getAbsolutePath(), multiTorrentPath);
+                fs.add_file(multiTorrentPath, file.length());
             }
         }
         final create_torrent ct = new create_torrent(fs);
@@ -242,6 +269,9 @@ public enum PFECore {
                 if (p > lastPercent) {
                     log.info("Hashed {}%", p);
                     lastPercent = p;
+                    if (listener != null) {
+                        listener.progress(p);
+                    }
                 }
             }
         };
