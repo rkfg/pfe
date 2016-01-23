@@ -147,8 +147,12 @@ public enum PFECore {
                         long id = torrentHandle.getSwig().id();
                         TorrentActivity activity = activities.get(id);
                         if (activity == null) {
-                            activity = new TorrentActivity();
-                            activities.put(id, activity);
+                            try {
+                                activity = new TorrentActivity(getHash(torrentHandle));
+                                activities.put(id, activity);
+                            } catch (DecoderException e) {
+                                e.printStackTrace();
+                            }
                         }
                         int p = (int) (status.getProgress() * 100);
                         if (p > activity.progress) {
@@ -182,10 +186,14 @@ public enum PFECore {
         }, 1000, 1000);
     }
 
+    public static Sha1Hash base32ToSha1(String base32hash) {
+        char[] hash = Hex.encodeHex(new Base32().decode(base32hash));
+        return new Sha1Hash(String.valueOf(hash));
+    }
+
     public TorrentHandle addTorrent(String base32hash, String saveToPath) {
         AddTorrentParams torrentParams = AddTorrentParams.createInstance();
-        char[] hash = Hex.encodeHex(new Base32().decode(base32hash));
-        torrentParams.infoHash(new Sha1Hash(String.valueOf(hash)));
+        torrentParams.infoHash(base32ToSha1(base32hash));
         torrentParams.savePath(saveToPath);
         final TorrentHandle handle = session.addTorrent(torrentParams, new ErrorCode(new error_code()));
         setTrackers(handle);
@@ -357,4 +365,7 @@ public enum PFECore {
         session.abort();
     }
 
+    public TorrentHandle findTorrent(String hash) {
+        return session.findTorrent(base32ToSha1(hash));
+    }
 }

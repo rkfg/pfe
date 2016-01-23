@@ -5,4 +5,10 @@ public class TorrentActivity {
     public long timestamp = System.nanoTime();
     public int progress;
     public String name;
+    public String hash;
+
+    public TorrentActivity(String hash) {
+        this.hash = hash;
+    }
+
 }
