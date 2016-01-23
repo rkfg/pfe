@@ -353,4 +353,8 @@ public enum PFECore {
         listeners.remove(listener);
     }
 
+    public void stop() {
+        session.abort();
+    }
+
 }
