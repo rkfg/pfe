@@ -295,7 +295,7 @@ public enum PFECore {
         setTrackers(handle);
         log.info("Seeding {}", handle.getTorrentInfo().getName());
         try {
-            log.info("Link: {}", getLink(handle));
+            log.info("Hash: {}", getHash(handle));
         } catch (DecoderException e1) {
             e1.printStackTrace();
         }
@@ -303,7 +303,7 @@ public enum PFECore {
         return handle;
     }
 
-    public String getLink(TorrentHandle handle) throws DecoderException {
+    public String getHash(TorrentHandle handle) throws DecoderException {
         return new Base32().encodeAsString(Hex.decodeHex(handle.getInfoHash().toHex().toCharArray()));
     }
 
