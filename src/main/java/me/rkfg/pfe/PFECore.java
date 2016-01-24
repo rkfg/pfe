@@ -126,7 +126,7 @@ public enum PFECore {
     }
 
     private void initSession() {
-        log.debug("Trackers: {}", settingsStorage.getTrackers());
+        log.info("Trackers: {}", settingsStorage.getTrackers());
         SettingsPack settingsPack = new SettingsPack();
         settingsPack.setBoolean(bool_types.enable_dht.swigValue(), settingsStorage.isDht());
         session = new Session(settingsPack, true);
@@ -157,7 +157,7 @@ public enum PFECore {
                         if (torrentInfo != null) {
                             activity.size = torrentInfo.getTotalSize();
                         }
-                        log.debug("Progress: {} for torrent {}", p, activity.name);
+                        log.info("Progress: {} for torrent {}", p, activity.name);
                         changed.add(activity);
                     }
                     // handle seeding torrents
@@ -178,14 +178,15 @@ public enum PFECore {
                         } else {
                             // nothing changed, check timeout
                             long seedingTimeout = settingsStorage.getSeedingTimeout();
-                            log.debug("Last timestamp: {} now: {} timeout: {}", activity.timestamp, System.nanoTime(),
-                                    seedingTimeout);
+                            log.debug("Last timestamp: {} now: {} timeout: {}", activity.timestamp, System.nanoTime(), seedingTimeout);
                             if (seedingTimeout > 0 && System.nanoTime() - activity.timestamp > seedingTimeout) {
                                 log.warn("Seeding '{}' timeout.", torrentInfo.getName());
                                 stopped.add(activity);
                                 torrentHandle.pause();
                             }
                         }
+                    } else {
+                        activity.timestamp = System.nanoTime();
                     }
                     if (changed.size() > 0) {
                         for (PFEListener pfeListener : listeners) {
