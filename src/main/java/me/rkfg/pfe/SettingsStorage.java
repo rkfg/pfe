@@ -21,7 +21,7 @@ public class SettingsStorage {
         File settingsFile = null;
         String settingsFilename = System.getProperty("pfe.settings");
         if (settingsFilename == null) {
-            settingsFilename = "pfe_settings.ini";
+            settingsFilename = new File(getJarDirectory(), "pfe_settings.ini").getAbsolutePath();
         }
         settingsFile = new File(settingsFilename);
         try {
@@ -56,6 +56,10 @@ public class SettingsStorage {
 
     public boolean isSeedAfterDownload() {
         return seedAfterDownload;
+    }
+
+    public static String getJarDirectory() {
+        return new File(SettingsStorage.class.getProtectionDomain().getCodeSource().getLocation().getPath()).getParent();
     }
 
 }
