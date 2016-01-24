@@ -7,6 +7,7 @@ public class TorrentActivity {
     public String name;
     public String hash;
     public long size;
+    public boolean complete;
 
     public TorrentActivity(String hash) {
         this.hash = hash;

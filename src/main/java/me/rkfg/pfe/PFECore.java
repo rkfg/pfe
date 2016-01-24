@@ -8,10 +8,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Timer;
@@ -139,8 +137,8 @@ public enum PFECore {
 
             @Override
             public void run() {
-                List<TorrentActivity> changed = new ArrayList<>();
-                List<TorrentActivity> stopped = new ArrayList<>();
+                Set<TorrentActivity> changed = new HashSet<>();
+                Set<TorrentActivity> stopped = new HashSet<>();
                 for (TorrentHandle torrentHandle : session.getTorrents()) {
                     TorrentStatus status = torrentHandle.getStatus();
                     if (status.isPaused()) {
@@ -162,6 +160,11 @@ public enum PFECore {
                     }
                     // handle seeding torrents
                     if (status.isFinished()) {
+                        if (!activity.complete) {
+                            // prevent the possible case when percent doesn't change but status changes
+                            changed.add(activity);
+                        }
+                        activity.complete = true;
                         long transferred = status.getTotalPayloadUpload();
                         if (transferred > activity.upload) {
                             // any useful data was uploaded
