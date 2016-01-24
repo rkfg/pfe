@@ -1,3 +1,0 @@
-#!/bin/sh
-BASEDIR="$(dirname "$0")"
-java -Xmx128m -Dpfe.settings="$BASEDIR/pfe_settings.ini" -jar pfe.jar "$@"
