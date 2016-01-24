@@ -168,7 +168,8 @@ public enum PFECore {
                             activity.upload = transferred;
                             activity.timestamp = System.nanoTime();
                             long totalSize = torrentInfo.getTotalSize();
-                            if (transferred > totalSize * settingsStorage.getSeedRatio()) {
+                            int seedRatio = settingsStorage.getSeedRatio();
+                            if (seedRatio > 0 && transferred > totalSize * seedRatio) {
                                 log.info("Seeding '{}' complete after reaching {} ratio.", torrentInfo.getName(),
                                         Math.round(transferred * 100 / totalSize) / 100.0);
                                 stopped.add(activity);
@@ -176,9 +177,10 @@ public enum PFECore {
                             }
                         } else {
                             // nothing changed, check timeout
+                            long seedingTimeout = settingsStorage.getSeedingTimeout();
                             log.debug("Last timestamp: {} now: {} timeout: {}", activity.timestamp, System.nanoTime(),
-                                    settingsStorage.getSeedingTimeout());
-                            if (System.nanoTime() - activity.timestamp > settingsStorage.getSeedingTimeout()) {
+                                    seedingTimeout);
+                            if (seedingTimeout > 0 && System.nanoTime() - activity.timestamp > seedingTimeout) {
                                 log.warn("Seeding '{}' timeout.", torrentInfo.getName());
                                 stopped.add(activity);
                                 torrentHandle.pause();
