@@ -292,15 +292,20 @@ public enum PFECore {
                 rootPath = file.getParent();
                 libtorrent.add_files(fs, file.getAbsolutePath());
             } else {
-                type = TorrentType.MULTIFILE;
-                String newRootPath = file.getParentFile().getParent();
-                if (rootPath != null && !rootPath.equals(newRootPath)) {
-                    throw new PFEException("Files should have the same root directory.");
+                if (paths.length > 1) {
+                    type = TorrentType.MULTIFILE;
+                    String newRootPath = file.getParentFile().getParent();
+                    if (rootPath != null && !rootPath.equals(newRootPath)) {
+                        throw new PFEException("Files should have the same root directory.");
+                    }
+                    rootPath = newRootPath;
+                    String multiTorrentPath = new File(file.getParentFile().getName(), file.getName()).getPath();
+                    log.debug("Mapping: {} => {}", file.getAbsolutePath(), multiTorrentPath);
+                    fs.add_file(multiTorrentPath, file.length());
+                } else {
+                    rootPath = file.getParent();
+                    fs.add_file(file.getName(), file.length());
                 }
-                rootPath = newRootPath;
-                String multiTorrentPath = new File(file.getParentFile().getName(), file.getName()).getPath();
-                log.debug("Mapping: {} => {}", file.getAbsolutePath(), multiTorrentPath);
-                fs.add_file(multiTorrentPath, file.length());
             }
         }
         final create_torrent ct = new create_torrent(fs);
