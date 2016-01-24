@@ -18,22 +18,24 @@ public class SettingsStorage {
     private boolean seedAfterDownload;
 
     public SettingsStorage() {
+        File settingsFile = null;
+        String settingsFilename = System.getProperty("pfe.settings");
+        if (settingsFilename == null) {
+            settingsFilename = "pfe_settings.ini";
+        }
+        settingsFile = new File(settingsFilename);
         try {
-            File settingsFile = null;
-            String settingsFilename = System.getProperty("pfe.settings");
-            if (settingsFilename == null) {
-                settingsFilename = "pfe_settings.ini";
-            }
-            settingsFile = new File(settingsFilename);
             properties.load(new FileInputStream(settingsFile));
-            dht = Boolean.valueOf(properties.getProperty("enable_dht", "false"));
-            seedRatio = Integer.valueOf(properties.getProperty("seeding_ratio", "3"));
-            trackers = Arrays.asList(properties.getProperty("trackers", "").split("\\|"));
-            seedingTimeout = TimeUnit.SECONDS.toNanos(Integer.valueOf(properties.getProperty("seeding_timeout", "60")));
-            seedAfterDownload = Boolean.valueOf(properties.getProperty("seed_after_download", "false"));
         } catch (IOException e) {
             e.printStackTrace();
         }
+        dht = Boolean.valueOf(properties.getProperty("enable_dht", "false"));
+        seedRatio = Integer.valueOf(properties.getProperty("seeding_ratio", "3"));
+        trackers = Arrays.asList(properties.getProperty("trackers", "").split("\\|"));
+        if (trackers == null) {
+        }
+        seedingTimeout = TimeUnit.SECONDS.toNanos(Integer.valueOf(properties.getProperty("seeding_timeout", "60")));
+        seedAfterDownload = Boolean.valueOf(properties.getProperty("seed_after_download", "false"));
     }
 
     public Collection<String> getTrackers() {
