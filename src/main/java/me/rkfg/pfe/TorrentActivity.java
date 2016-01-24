@@ -6,6 +6,7 @@ public class TorrentActivity {
     public int progress;
     public String name;
     public String hash;
+    public long size;
 
     public TorrentActivity(String hash) {
         this.hash = hash;

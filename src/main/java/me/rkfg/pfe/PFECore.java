@@ -149,10 +149,14 @@ public enum PFECore {
                     }
                     TorrentActivity activity = getActivity(torrentHandle);
                     int p = (int) (status.getProgress() * 100);
+                    TorrentInfo torrentInfo = torrentHandle.getTorrentInfo();
                     if (p > activity.progress) {
                         // percentage changed
                         activity.name = torrentHandle.getName();
                         activity.progress = p;
+                        if (torrentInfo != null) {
+                            activity.size = torrentInfo.getTotalSize();
+                        }
                         log.debug("Progress: {} for torrent {}", p, activity.name);
                         changed.add(activity);
                     }
@@ -163,9 +167,9 @@ public enum PFECore {
                             // any useful data was uploaded
                             activity.upload = transferred;
                             activity.timestamp = System.nanoTime();
-                            long totalSize = torrentHandle.getTorrentInfo().getTotalSize();
+                            long totalSize = torrentInfo.getTotalSize();
                             if (transferred > totalSize * settingsStorage.getSeedRatio()) {
-                                log.info("Seeding '{}' complete after reaching {} ratio.", torrentHandle.getTorrentInfo().getName(),
+                                log.info("Seeding '{}' complete after reaching {} ratio.", torrentInfo.getName(),
                                         Math.round(transferred * 100 / totalSize) / 100.0);
                                 stopped.add(activity);
                                 torrentHandle.pause();
@@ -175,7 +179,7 @@ public enum PFECore {
                             log.debug("Last timestamp: {} now: {} timeout: {}", activity.timestamp, System.nanoTime(),
                                     settingsStorage.getSeedingTimeout());
                             if (System.nanoTime() - activity.timestamp > settingsStorage.getSeedingTimeout()) {
-                                log.warn("Seeding '{}' timeout.", torrentHandle.getTorrentInfo().getName());
+                                log.warn("Seeding '{}' timeout.", torrentInfo.getName());
                                 stopped.add(activity);
                                 torrentHandle.pause();
                             }
