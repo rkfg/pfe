@@ -39,7 +39,6 @@ import com.frostwire.jlibtorrent.TorrentInfo;
 import com.frostwire.jlibtorrent.TorrentStatus;
 import com.frostwire.jlibtorrent.alerts.AlertType;
 import com.frostwire.jlibtorrent.alerts.FileErrorAlert;
-import com.frostwire.jlibtorrent.alerts.StatsAlert;
 import com.frostwire.jlibtorrent.alerts.TorrentErrorAlert;
 import com.frostwire.jlibtorrent.alerts.TorrentFinishedAlert;
 import com.frostwire.jlibtorrent.swig.add_torrent_params;
@@ -140,48 +139,73 @@ public enum PFECore {
 
             @Override
             public void run() {
-                List<TorrentActivity> result = new ArrayList<TorrentActivity>();
+                List<TorrentActivity> changed = new ArrayList<>();
+                List<TorrentActivity> stopped = new ArrayList<>();
                 for (TorrentHandle torrentHandle : session.getTorrents()) {
                     TorrentStatus status = torrentHandle.getStatus();
-                    if (!status.isPaused()) {
-                        long id = torrentHandle.getSwig().id();
-                        TorrentActivity activity = activities.get(id);
-                        if (activity == null) {
-                            try {
-                                activity = new TorrentActivity(getHash(torrentHandle));
-                                activities.put(id, activity);
-                            } catch (DecoderException e) {
-                                e.printStackTrace();
+                    if (status.isPaused()) {
+                        // paused torrents are skipped entirely
+                        continue;
+                    }
+                    TorrentActivity activity = getActivity(torrentHandle);
+                    int p = (int) (status.getProgress() * 100);
+                    if (p > activity.progress) {
+                        // percentage changed
+                        activity.name = torrentHandle.getName();
+                        activity.progress = p;
+                        log.debug("Progress: {} for torrent {}", p, activity.name);
+                        changed.add(activity);
+                    }
+                    // handle seeding torrents
+                    if (status.isFinished()) {
+                        long transferred = status.getTotalPayloadUpload();
+                        if (transferred > activity.upload) {
+                            // any useful data was uploaded
+                            activity.upload = transferred;
+                            activity.timestamp = System.nanoTime();
+                            long totalSize = torrentHandle.getTorrentInfo().getTotalSize();
+                            if (transferred > totalSize * settingsStorage.getSeedRatio()) {
+                                log.info("Seeding '{}' complete after reaching {} ratio.", torrentHandle.getTorrentInfo().getName(),
+                                        Math.round(transferred * 100 / totalSize) / 100.0);
+                                stopped.add(activity);
+                                torrentHandle.pause();
                             }
-                        }
-                        int p = (int) (status.getProgress() * 100);
-                        if (p > activity.progress) {
-                            activity.name = torrentHandle.getName();
-                            activity.progress = p;
-                            log.debug("Progress: {} for torrent {}", p, activity.name);
-                            result.add(activity);
-                        }
-                        if (status.isFinished()) {
-                            long transferred = status.getTotalPayloadUpload();
-                            if (transferred > activity.upload) {
-                                activity.upload = transferred;
-                                activity.timestamp = System.nanoTime();
-                            } else {
-                                log.debug("Last timestamp: {} now: {} timeout: {}", activity.timestamp, System.nanoTime(),
-                                        settingsStorage.getSeedingTimeout());
-                                if (System.nanoTime() - activity.timestamp > settingsStorage.getSeedingTimeout()) {
-                                    log.warn("Seeding '{}' timeout.", torrentHandle.getTorrentInfo().getName());
-                                    torrentHandle.pause();
-                                }
-                            }
-                        }
-                        if (result.size() > 0) {
-                            for (PFEListener pfeListener : listeners) {
-                                pfeListener.torrentProgress(result);
+                        } else {
+                            // nothing changed, check timeout
+                            log.debug("Last timestamp: {} now: {} timeout: {}", activity.timestamp, System.nanoTime(),
+                                    settingsStorage.getSeedingTimeout());
+                            if (System.nanoTime() - activity.timestamp > settingsStorage.getSeedingTimeout()) {
+                                log.warn("Seeding '{}' timeout.", torrentHandle.getTorrentInfo().getName());
+                                stopped.add(activity);
+                                torrentHandle.pause();
                             }
                         }
                     }
+                    if (changed.size() > 0) {
+                        for (PFEListener pfeListener : listeners) {
+                            pfeListener.torrentProgress(changed);
+                        }
+                    }
+                    if (stopped.size() > 0) {
+                        for (PFEListener pfeListener : listeners) {
+                            pfeListener.torrentStopped(stopped);
+                        }
+                    }
                 }
+            }
+
+            private TorrentActivity getActivity(TorrentHandle torrentHandle) {
+                long id = torrentHandle.getSwig().id();
+                TorrentActivity activity = activities.get(id);
+                if (activity == null) {
+                    try {
+                        activity = new TorrentActivity(getHash(torrentHandle));
+                        activities.put(id, activity);
+                    } catch (DecoderException e) {
+                        e.printStackTrace();
+                    }
+                }
+                return activity;
             }
         }, 1000, 1000);
     }
@@ -221,7 +245,6 @@ public enum PFECore {
 
         };
         addListener(listener);
-        addSeedListener(handle);
         return handle;
     }
 
@@ -307,7 +330,6 @@ public enum PFECore {
         } catch (DecoderException e1) {
             e1.printStackTrace();
         }
-        addSeedListener(handle);
         return handle;
     }
 
@@ -323,30 +345,6 @@ public enum PFECore {
 
     public void addListener(AlertListener listener) {
         session.addListener(listener);
-    }
-
-    private void addSeedListener(TorrentHandle th) {
-        session.addListener(new TorrentAlertAdapter(th) {
-
-            @Override
-            public void stats(StatsAlert alert) {
-                TorrentHandle torrentHandle = alert.getHandle();
-                if (torrentHandle.getStatus().isFinished()) {
-                    long transferred = torrentHandle.getStatus().getTotalPayloadUpload();
-                    long totalSize = torrentHandle.getTorrentInfo().getTotalSize();
-                    if (transferred > totalSize * settingsStorage.getSeedRatio()) {
-                        log.info("Seeding '{}' complete after reaching {} ratio.", torrentHandle.getTorrentInfo().getName(),
-                                Math.round(transferred * 100 / totalSize) / 100.0);
-                        torrentHandle.pause();
-                    }
-                }
-            }
-
-            @Override
-            public int[] types() {
-                return new int[] { AlertType.STATS.getSwig() };
-            }
-        });
     }
 
     public void removeTorrent(TorrentHandle th) {
