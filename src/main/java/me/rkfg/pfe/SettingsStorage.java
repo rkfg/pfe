@@ -34,7 +34,7 @@ public class SettingsStorage {
         trackers = Arrays.asList(properties.getProperty("trackers", "").split("\\|"));
         if (trackers == null) {
         }
-        seedingTimeout = TimeUnit.SECONDS.toNanos(Integer.valueOf(properties.getProperty("seeding_timeout", "60")));
+        seedingTimeout = TimeUnit.SECONDS.toNanos(Integer.valueOf(properties.getProperty("seeding_timeout", "3600")));
         seedAfterDownload = Boolean.valueOf(properties.getProperty("seed_after_download", "false"));
     }
 
