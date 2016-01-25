@@ -151,13 +151,13 @@ public enum PFECore {
                     TorrentActivity activity = getActivity(torrentHandle);
                     int p = (int) (status.getProgress() * 100);
                     TorrentInfo torrentInfo = torrentHandle.getTorrentInfo();
+                    activity.peers = status.getNumPeers() - status.getNumSeeds();
                     if (p > activity.progress) {
                         // percentage changed
-                        activity.name = torrentHandle.getName();
-                        activity.progress = p;
-                        if (torrentInfo != null) {
-                            activity.size = torrentInfo.getTotalSize();
+                        if (activity.name == null) {
+                            activity.name = torrentHandle.getName();
                         }
+                        activity.progress = p;
                         log.info("Progress: {} for torrent {}", p, activity.name);
                         changed.add(activity);
                     }
@@ -166,20 +166,26 @@ public enum PFECore {
                         if (!activity.complete) {
                             // prevent the possible case when percent doesn't change but status changes
                             changed.add(activity);
+                            activity.complete = true;
                         }
-                        activity.complete = true;
                         long transferred = status.getTotalPayloadUpload();
                         if (transferred > activity.upload) {
                             // any useful data was uploaded
                             activity.upload = transferred;
                             activity.timestamp = System.nanoTime();
                             long totalSize = torrentInfo.getTotalSize();
+                            if (torrentInfo != null) {
+                                activity.seedPercent = (int) (transferred * 100 / totalSize);
+                            }
                             int seedRatio = settingsStorage.getSeedRatio();
                             if (seedRatio > 0 && transferred > totalSize * seedRatio) {
                                 log.info("Seeding '{}' complete after reaching {} ratio.", torrentInfo.getName(),
                                         Math.round(transferred * 100 / totalSize) / 100.0);
                                 stopped.add(activity);
                                 torrentHandle.pause();
+                            } else {
+                                changed.add(activity);
+                                activity.uploading = true;
                             }
                         } else {
                             // nothing changed, check timeout
@@ -189,6 +195,11 @@ public enum PFECore {
                                 log.warn("Seeding '{}' timeout.", torrentInfo.getName());
                                 stopped.add(activity);
                                 torrentHandle.pause();
+                            } else {
+                                if (activity.uploading) {
+                                    activity.uploading = false;
+                                    changed.add(activity);
+                                }
                             }
                         }
                     } else {
@@ -212,7 +223,7 @@ public enum PFECore {
                 TorrentActivity activity = activities.get(id);
                 if (activity == null) {
                     try {
-                        activity = new TorrentActivity(getHash(torrentHandle));
+                        activity = new TorrentActivity(torrentHandle);
                         activities.put(id, activity);
                     } catch (DecoderException e) {
                         e.printStackTrace();
@@ -351,7 +362,7 @@ public enum PFECore {
         return handle;
     }
 
-    public String getHash(TorrentHandle handle) throws DecoderException {
+    public static String getHash(TorrentHandle handle) throws DecoderException {
         return new Base32().encodeAsString(Hex.decodeHex(handle.getInfoHash().toHex().toCharArray()));
     }
 
