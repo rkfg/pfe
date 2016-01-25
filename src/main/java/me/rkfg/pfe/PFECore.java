@@ -76,6 +76,9 @@ public enum PFECore {
         if (arch.equals("amd64")) {
             arch = "x86_64";
         }
+        if (arch.equals("arm")) {
+            arch = "armeabi-v7a";
+        }
         String os = System.getProperty("os.name").toLowerCase();
         String ext = "so"; // Linux/Android
         if (os.contains("mac")) {

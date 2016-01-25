@@ -11,29 +11,55 @@
     <profiles>
         <profile>
             <id>windows</id>
+            <activation>
+                <property>
+                    <name>windows</name>
+                </property>
+            </activation>
             <properties>
                 <profile-id>windows</profile-id>
             </properties>
             <dependencies>
                 <dependency>
                     <groupId>com.frostwire</groupId>
-                    <artifactId>jlibtorrent-windows</artifactId>
+                    <artifactId>jlibtorrent-${profile-id}</artifactId>
                     <version>${jlt.version}</version>
                 </dependency>
             </dependencies>
         </profile>
         <profile>
             <id>linux</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+                <property>
+                    <name>linux</name>
+                </property>
+            </activation>
             <properties>
                 <profile-id>linux</profile-id>
             </properties>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
             <dependencies>
                 <dependency>
                     <groupId>com.frostwire</groupId>
-                    <artifactId>jlibtorrent-linux</artifactId>
+                    <artifactId>jlibtorrent-${profile-id}</artifactId>
+                    <version>${jlt.version}</version>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <id>arm</id>
+            <activation>
+                <property>
+                    <name>arm</name>
+                </property>
+            </activation>
+            <properties>
+                <profile-id>android-arm</profile-id>
+            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>com.frostwire</groupId>
+                    <artifactId>jlibtorrent-${profile-id}</artifactId>
                     <version>${jlt.version}</version>
                 </dependency>
             </dependencies>
