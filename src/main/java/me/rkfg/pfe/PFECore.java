@@ -128,6 +128,8 @@ public enum PFECore {
         log.info("Trackers: {}", settingsStorage.getTrackers());
         SettingsPack settingsPack = new SettingsPack();
         settingsPack.setBoolean(bool_types.enable_dht.swigValue(), settingsStorage.isDht());
+        settingsPack.setBoolean(bool_types.enable_outgoing_utp.swigValue(), false);
+        settingsPack.setBoolean(bool_types.enable_incoming_utp.swigValue(), false);
         session = new Session(settingsPack, true);
         // stats don't get sent after a minute of torrent inactivity or so, we should manually check them to handle timeouts
         Timer torrentProgressTimer = new Timer("Progress checker", true);
@@ -149,8 +151,11 @@ public enum PFECore {
                     TorrentActivity activity = getActivity(torrentHandle);
                     int p = (int) (status.getProgress() * 100);
                     TorrentInfo torrentInfo = torrentHandle.getTorrentInfo();
+                    if (torrentInfo != null && activity.size == 0) {
+                        activity.size = torrentInfo.getTotalSize();
+                    }
                     activity.peers = status.getNumPeers() - status.getNumSeeds();
-                    if (p > activity.progress) {
+                    if (p != activity.progress) {
                         // percentage changed
                         if (activity.name == null) {
                             activity.name = torrentHandle.getName();
