@@ -70,6 +70,7 @@ public enum PFECore {
 
     private void loadLibrary() {
         String arch = System.getProperty("os.arch");
+        String libname = "libjlibtorrent";
         if (arch.equals("x86") || arch.equals("i386")) {
             arch = "x86";
         }
@@ -86,15 +87,12 @@ public enum PFECore {
         }
         if (os.contains("windows")) {
             ext = "dll";
+            libname = "jlibtorrent";
         }
 
-        String path = "/lib/" + arch + "/libjlibtorrent." + ext;
+        String path = "/lib/" + arch + "/" + libname + "." + ext;
 
         Path inputPath = Paths.get(path);
-
-        if (!inputPath.isAbsolute()) {
-            throw new IllegalArgumentException("The path has to be absolute, but found: " + inputPath);
-        }
 
         String fileNameFull = inputPath.getFileName().toString();
         int dotIndex = fileNameFull.indexOf('.');
@@ -114,7 +112,7 @@ public enum PFECore {
         File targetFile = target.toFile();
         targetFile.deleteOnExit();
 
-        try (InputStream source = PFECore.class.getResourceAsStream(inputPath.toString())) {
+        try (InputStream source = PFECore.class.getResourceAsStream(path)) {
             if (source == null) {
                 throw new FileNotFoundException("File " + inputPath + " was not found in classpath.");
             }

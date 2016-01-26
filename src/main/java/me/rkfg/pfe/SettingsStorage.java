@@ -3,6 +3,8 @@ package me.rkfg.pfe;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Properties;
@@ -59,7 +61,12 @@ public class SettingsStorage {
     }
 
     public static String getJarDirectory() {
-        return new File(SettingsStorage.class.getProtectionDomain().getCodeSource().getLocation().getPath()).getParent();
+        try {
+            return new File(URLDecoder.decode(SettingsStorage.class.getProtectionDomain().getCodeSource().getLocation().getPath(), "utf-8")).getParent();
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+            return ".";
+        }
     }
 
 }
