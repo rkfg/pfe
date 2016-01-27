@@ -153,6 +153,7 @@ public enum PFECore {
                     TorrentInfo torrentInfo = torrentHandle.getTorrentInfo();
                     if (torrentInfo != null && activity.size == 0) {
                         activity.size = torrentInfo.getTotalSize();
+                        changed.add(activity);
                     }
                     activity.peers = status.getNumPeers() - status.getNumSeeds();
                     if (p != activity.progress) {
