@@ -19,8 +19,8 @@ public abstract class AbstractSettingsStorage {
     protected Logger log = LoggerFactory.getLogger(getClass());
     private String iniFile;
 
-    protected AbstractSettingsStorage(Class<?> jarClass, String filename) {
-        iniFile = new File(getJarDirectory(jarClass), filename).getAbsolutePath();
+    protected AbstractSettingsStorage(Class<?> clazz, String filename) {
+        iniFile = new File(getJarDirectory(clazz), filename).getAbsolutePath();
         try {
             properties.load(new InputStreamReader(new FileInputStream(new File(iniFile)), StandardCharsets.UTF_8));
         } catch (IOException e) {

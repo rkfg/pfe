@@ -46,6 +46,7 @@ import com.frostwire.jlibtorrent.swig.file_storage;
 import com.frostwire.jlibtorrent.swig.libtorrent;
 import com.frostwire.jlibtorrent.swig.set_piece_hashes_listener;
 import com.frostwire.jlibtorrent.swig.settings_pack.bool_types;
+import com.frostwire.jlibtorrent.swig.settings_pack.string_types;
 
 public enum PFECore {
 
@@ -130,6 +131,7 @@ public enum PFECore {
         settingsPack.setBoolean(bool_types.enable_dht.swigValue(), settingsStorage.isDht());
         settingsPack.setBoolean(bool_types.enable_outgoing_utp.swigValue(), false);
         settingsPack.setBoolean(bool_types.enable_incoming_utp.swigValue(), false);
+        settingsPack.setString(string_types.peer_fingerprint.swigValue(), "-PF1000-");
         session = new Session(settingsPack, true);
         // stats don't get sent after a minute of torrent inactivity or so, we should manually check them to handle timeouts
         Timer torrentProgressTimer = new Timer("Progress checker", true);
